@@ -178,7 +178,7 @@ class LocationViewModel @Inject constructor(
                 .collect { (yaw, loc, beachOn, northOn) ->
                     val userLoc = loc!!
 
-                    // norte
+                    // Norte
                     if (northOn) {
                         audioManager.scheduleNorthSignal(yaw.toFloat())
                     } else {
