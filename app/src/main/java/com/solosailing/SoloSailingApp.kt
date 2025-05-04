@@ -1,4 +1,4 @@
-package com.solosailing // Ajusta tu paquete
+package com.solosailing
 
 import android.app.Application
 import dagger.hilt.android.HiltAndroidApp

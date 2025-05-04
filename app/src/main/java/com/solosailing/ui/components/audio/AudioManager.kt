@@ -22,6 +22,8 @@ class AudioManager @Inject constructor(
     // Roll alert
     private var snapSoundId: Int = 0
     private var snapJob: Job? = null
+    private var lastGroupCount: Int = 0
+
 
     // Señal Norte
     private val northHourIds = mutableMapOf<Int, Int>()
@@ -70,19 +72,35 @@ class AudioManager @Inject constructor(
         }
     }
 
-    /** Escora (“roll”) */
     fun scheduleRollAlert(roll: Float, threshold: Float = 10f) {
         val a = abs(roll)
-        if (a < threshold) { snapJob?.cancel(); return }
-        if (snapJob?.isActive == true) return
+        if (a < threshold) {
+            snapJob?.cancel()
+            lastGroupCount = 0
+            return
+        }
+
+        val groupCount = ((a - threshold) / threshold).toInt().coerceIn(0, 2) + 1
+        if (snapJob?.isActive == true && groupCount == lastGroupCount) return
+        lastGroupCount = groupCount
+
+        val pan = if (roll < 0f) +1f else -1f
+        val vol = 1f
+        val volL = if (pan < 0f) vol * (1f + pan) else vol
+        val volR = if (pan > 0f) vol * (1f - pan) else vol
+
         snapJob?.cancel()
         snapJob = scope.launch {
             while (isActive) {
-                pool.play(snapSoundId, 1f, 1f, 1, 0, 1f)
-                delay(((1f - ((a - threshold)/(90f - threshold))).coerceIn(0f,1f)*900 + 100).toLong())
+                repeat(groupCount) {
+                    pool.play(snapSoundId, volL, volR, 1, 0, 1f)
+                    delay(100L)
+                }
+                delay(1000L)
             }
         }
     }
+
     fun stopRollAlert() { snapJob?.cancel() }
 
     /** Señal Norte: sólo (re)lanza si cambia la hora de reloj */

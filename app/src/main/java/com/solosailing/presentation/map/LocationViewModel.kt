@@ -16,7 +16,6 @@ import com.google.gson.reflect.TypeToken
 import com.solosailing.data.remote.dto.CreateObstacleRequest
 import com.solosailing.data.remote.dto.ObstacleDto
 import com.solosailing.data.repository.ObstacleRepository
-import com.solosailing.navigation.Routes.NAV_SETTINGS
 import com.solosailing.sensors.SensorsManager
 import com.solosailing.ui.components.audio.AudioEvent
 import com.solosailing.ui.components.audio.AudioManager
@@ -28,9 +27,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.util.UUID
 import javax.inject.Inject
-import kotlin.math.min
 import com.solosailing.R
 
 @HiltViewModel
@@ -44,9 +41,9 @@ class LocationViewModel @Inject constructor(
     companion object {
         private const val BEACH_THRESHOLD_METERS = 300f
     }
+
     val authority = "${application.packageName}.fileprovider"
 
-    // --- Estados (igual que antes) ---
     private val _currentLocation = MutableStateFlow<Location?>(null)
     val currentLocation: StateFlow<Location?> = _currentLocation.asStateFlow()
 

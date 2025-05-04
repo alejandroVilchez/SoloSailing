@@ -80,6 +80,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
 
+    implementation(libs.material3)
+
     // Hilt
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)
@@ -97,6 +99,8 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
+
 
     // Test
     testImplementation(libs.junit)
