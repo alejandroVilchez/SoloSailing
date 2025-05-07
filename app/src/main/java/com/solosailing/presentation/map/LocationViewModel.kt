@@ -29,6 +29,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 import com.solosailing.R
+import com.solosailing.utils.calculateAzimuth
+import com.solosailing.utils.calculateDistance
 
 @HiltViewModel
 class LocationViewModel @Inject constructor(
@@ -37,6 +39,7 @@ class LocationViewModel @Inject constructor(
     private val audioManager: AudioManager,
     private val sensorsManager: SensorsManager,
     private val sequencer: AudioSequencer
+
 ) : ViewModel() {
     companion object {
         private const val BEACH_THRESHOLD_METERS = 300f
@@ -71,8 +74,8 @@ class LocationViewModel @Inject constructor(
         audioManager.initialize()
 
 
-        obstacleSampleIds["Boya"]  = sequencer.loadSample(R.raw.a6)
-        obstacleSampleIds["Bote"]  = sequencer.loadSample(R.raw.c6)
+        obstacleSampleIds["Boya"]  = sequencer.loadSample(R.raw.buoy)
+        obstacleSampleIds["Bote"]  = sequencer.loadSample(R.raw.boat_1)
 
 
         listenToObstacles()
@@ -271,11 +274,7 @@ class LocationViewModel @Inject constructor(
     fun toggleBeachSignal() { _beachSignalActive.value = !_beachSignalActive.value }
     fun toggleNorthSignal() { _northSignalActive.value = !_northSignalActive.value }
 
-    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
-        val results = FloatArray(1)
-        Location.distanceBetween(lat1, lon1, lat2, lon2, results)
-        return results[0]
-    }
+
 
 
     fun clearErrorMessage() { _errorMessage.value = null }

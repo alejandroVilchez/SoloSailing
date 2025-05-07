@@ -1,4 +1,3 @@
-// com/solosailing/presentation/regatta/IntroSimulationScreen.kt
 package com.solosailing.presentation.regatta
 
 import android.annotation.SuppressLint
@@ -11,8 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHostController
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -20,45 +18,37 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import com.solosailing.R
 import com.solosailing.viewModel.RegattaSimulationViewModel
-import com.solosailing.viewModel.IntroPoint
 import kotlinx.coroutines.delay
 
 @SuppressLint("UnrememberedMutableState")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegattaSimulationScreen(
-    vm: RegattaSimulationViewModel = viewModel()
+    vm: RegattaSimulationViewModel = hiltViewModel(),
 ) {
     val buoys by vm.buoys.collectAsState()
-    val allRoutes by vm.positions.collectAsState()
+    val routes by vm.positions.collectAsState()
+    val simIdx by vm.simIdx.collectAsState()
 
-    // 1) Dropdown de barcos para seguir cámara
+    val northSignalActive by vm.northSignalActive.collectAsState()
+
+
     var expanded by remember { mutableStateOf(false) }
-    var selectedId by remember { mutableStateOf(allRoutes.keys.firstOrNull() ?: "") }
+    var selectedId by remember { mutableStateOf(routes.keys.firstOrNull() ?: "") }
 
-    // 2) Índice global de simulación
-    var simIdx by remember { mutableStateOf(0) }
-    var running by remember { mutableStateOf(false) }
-
-    // 3) Cámara “follow”
     val cameraState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(
-            allRoutes[selectedId]?.getOrNull(0)?.latLng ?: LatLng(0.0,0.0),
+            routes[selectedId]?.getOrNull(0)?.latLng ?: LatLng(0.0,0.0),
             14f
         )
     }
 
-//    LaunchedEffect(allRoutes.keys, selectedId) {
-//        simIdx = 0
-//        if (allRoutes.containsKey(selectedId).not()) {
-//            selectedId = allRoutes.keys.firstOrNull() ?: ""
-//        }
-//    }
+    var running by remember { mutableStateOf(false) }
 
     LaunchedEffect(running) {
         while (running) {
             delay(500L)
-            simIdx++
+            vm.nextStep()
         }
     }
 
@@ -75,12 +65,12 @@ fun RegattaSimulationScreen(
                         Text(selectedId)
                     }
                     DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
-                        allRoutes.keys.forEach { boat ->
+                        routes.keys.forEach { boat ->
                             DropdownMenuItem(
                                 text = { Text(boat) },
                                 onClick = {
                                     selectedId = boat
-                                    //simIdx = 0
+                                    vm.selectBoat(boat)
                                     expanded = false
                                 }
                             )
@@ -89,13 +79,13 @@ fun RegattaSimulationScreen(
                 }
                 // controles
                 Row {
-                    IconButton(onClick = { simIdx = (simIdx - 50).coerceAtLeast(0) }) {
+                    IconButton(onClick = { vm.rewind() }) {
                         Icon(Icons.Default.KeyboardArrowLeft, null)
                     }
-                    IconButton(onClick = { simIdx = 0 }) { Icon(Icons.Default.Refresh, null) }
+                    IconButton(onClick = { vm.reset() }) { Icon(Icons.Default.Refresh, null) }
                     IconButton(onClick = { running = true }) { Icon(Icons.Default.PlayArrow, null) }
                     IconButton(onClick = { running = false }) { Icon(Icons.Default.Lock, null) }
-                    IconButton(onClick = { simIdx = (simIdx + 50).coerceAtMost(allRoutes[selectedId]?.lastIndex ?: 0) }) {
+                    IconButton(onClick = { vm.advance() }) {
                         Icon(Icons.Default.KeyboardArrowRight, null)
                     }
                 }
@@ -104,8 +94,8 @@ fun RegattaSimulationScreen(
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             // para evitar out of bounds
-            val positionsByBoat = remember(allRoutes, simIdx) {
-                allRoutes.mapValues { (_, route) ->
+            val positionsByBoat = remember(routes, simIdx) {
+                routes.mapValues { (_, route) ->
                     route.getOrNull(simIdx.coerceIn(0, route.lastIndex))!!
                 }
             }
@@ -123,7 +113,8 @@ fun RegattaSimulationScreen(
                 buoys.forEach { buoy ->
                     Marker(state = MarkerState(buoy.latLng), title = "Boya ${buoy.name}")
                 }
-                positionsByBoat.entries.forEachIndexed { index, (boatId, pt) ->                    val iconResId = when (index % 9) {
+                positionsByBoat.entries.forEachIndexed { index, (boatId, pt) ->
+                    val iconResId = when (index % 9) {
                         0 -> R.drawable.direction_icon1
                         1 -> R.drawable.direction_icon2
                         2 -> R.drawable.direction_icon3
@@ -141,6 +132,21 @@ fun RegattaSimulationScreen(
                         anchor = Offset(0.5f, 0.5f),
                         icon = BitmapDescriptorFactory.fromResource(iconResId)
                     )
+                }
+            }
+            Column(
+                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Botón Señal Norte
+                FloatingActionButton(
+                    onClick = { vm.toggleNorthSignal() },
+                    //modifier = Modifier.size(48.dp),
+                    containerColor = if (northSignalActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    //Icon(Icons.Default.Star, contentDescription = "Activar/Desactivar Señal Norte")
+                    //align
+                    Text("Dirección norte")
                 }
             }
         }

@@ -2,13 +2,12 @@ package com.solosailing.utils
 
 import android.location.Location
 import com.google.android.gms.maps.model.LatLng
-import kotlin.math.*
 
 
-fun calculateDistance(a: LatLng, b: LatLng): Float {
-    val result = FloatArray(2)
-    Location.distanceBetween(a.latitude, a.longitude, b.latitude, b.longitude, result)
-    return result[0]
+fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
+    val results = FloatArray(1)
+    Location.distanceBetween(lat1, lon1, lat2, lon2, results)
+    return results[0]
 }
 
 
