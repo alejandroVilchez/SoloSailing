@@ -1,4 +1,4 @@
-// com/solosailing/viewModel/PastRouteViewModel.kt
+// com/solosailing/viewModel/PastRegattaViewModel.kt
 package com.solosailing.viewModel
 
 import androidx.lifecycle.ViewModel
@@ -7,7 +7,6 @@ import com.google.android.gms.maps.model.LatLng
 import com.solosailing.data.remote.api.RegattaApiService
 import com.solosailing.data.remote.dto.GpsPointDto
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -24,10 +23,9 @@ private fun GpsPointDto.toPastPoint() =
     )
 
 @HiltViewModel
-class PastRouteViewModel @Inject constructor(
+class PastRegattaViewModel @Inject constructor(
     private val api: RegattaApiService
 ) : ViewModel() {
-
     private val _points = MutableStateFlow<List<PastPoint>>(emptyList())
     val points: StateFlow<List<PastPoint>> = _points
 
@@ -41,8 +39,8 @@ class PastRouteViewModel @Inject constructor(
         viewModelScope.launch {
             _loading.value = true
             runCatching { api.getRegattaPoints(regattaId) }
-                .onSuccess { dtoList ->
-                    _points.value = dtoList.map(GpsPointDto::toPastPoint)
+                .onSuccess { list ->
+                    _points.value = list.map(GpsPointDto::toPastPoint)
                     _error.value = null
                 }
                 .onFailure { e ->

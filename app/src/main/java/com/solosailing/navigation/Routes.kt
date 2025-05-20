@@ -7,9 +7,9 @@ object Routes {
     const val MAP = "presentation/map/MapScreen.kt"
     const val REGATTA_SIMULATION = "presentation/regatta/RegattaSimulationScreen.kt"
     const val PAST_REGATTAS = "past"
-    const val LIVE_REGATTAS = "presentation/regatta/LiveRegattasScreen.kt"
+    //const val PAST_ROUTE = "past/{regattaId}"
+    const val LIVE_REGATTAS = "live"
+   // const val LIVE_ROUTE = "live/{regattaId}/{mode}/{boatId?}"
     const val SOUND_SETTINGS = "settings/soundSettings"
     const val NAV_SETTINGS = "settings/navSettings"
-
-    // ... otras rutas
 }

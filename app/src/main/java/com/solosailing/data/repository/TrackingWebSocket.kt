@@ -32,6 +32,7 @@ class TrackingWebSocket(
 }
 @Serializable data class TrackingUpdate(
     val regattaId: String,
+    val boatId: String,
     val latitude: Double,
     val longitude: Double,
     val yaw: Float,

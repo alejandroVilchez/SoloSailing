@@ -17,10 +17,12 @@ import com.solosailing.data.remote.dto.CreateObstacleRequest
 import com.solosailing.data.remote.dto.ObstacleDto
 import com.solosailing.data.repository.ObstacleRepository
 import com.solosailing.sensors.SensorsManager
+import com.solosailing.ui.components.audio.SpatialAudioManager
+import com.solosailing.ui.components.audio.SpatialAudioModule
+import com.solosailing.ui.components.audio.SpatialAudioEngine
 import com.solosailing.ui.components.audio.AudioEvent
 import com.solosailing.ui.components.audio.AudioManager
 import com.solosailing.ui.components.audio.AudioSequencer
-import com.solosailing.utils.calculateAzimuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -36,14 +38,14 @@ import com.solosailing.utils.calculateDistance
 class LocationViewModel @Inject constructor(
     private val application: Application,
     private val obstacleRepository: ObstacleRepository,
-    private val audioManager: AudioManager,
+    private val audioManager: SpatialAudioManager,
     private val sensorsManager: SensorsManager,
     private val sequencer: AudioSequencer
 
 ) : ViewModel() {
-    companion object {
-        private const val BEACH_THRESHOLD_METERS = 300f
-    }
+//    companion object {
+//        private const val BEACH_THRESHOLD_METERS = 300f
+//    }
 
     val authority = "${application.packageName}.fileprovider"
 
@@ -69,18 +71,27 @@ class LocationViewModel @Inject constructor(
     private val fusedLocationClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(application)
 
+//    init {
+//        loadObstacles()
+//        audioManager.initialize()
+//
+//
+//
+//        obstacleSampleIds["Boya"]  = sequencer.loadSample(R.raw.buoy)
+//
+//        obstacleSampleIds["Bote"]  = sequencer.loadSample(R.raw.boat_1)
+//
+//
+//        listenToObstacles()
+//        listenToRollAlert()
+//        listenToDirectionAlerts()
+//    }
     init {
         loadObstacles()
         audioManager.initialize()
-
-
-        obstacleSampleIds["Boya"]  = sequencer.loadSample(R.raw.buoy)
-        obstacleSampleIds["Bote"]  = sequencer.loadSample(R.raw.boat_1)
-
-
         listenToObstacles()
-        listenToRollAlert()
-        listenToDirectionAlerts()
+        listenToRoll()
+        listenToDirection()
     }
 
     fun loadObstacles() {
@@ -109,7 +120,7 @@ class LocationViewModel @Inject constructor(
             fusedLocationClient.requestLocationUpdates(
                 locationRequest,
                 locationCallback,
-                Looper.getMainLooper() // Correcto
+                Looper.getMainLooper()
             )
             Log.d("LocationViewModel", "Location updates started.")
         } catch (e: SecurityException) {
@@ -129,96 +140,141 @@ class LocationViewModel @Inject constructor(
     }
 
 
-    private fun listenToObstacles() {
-        viewModelScope.launch {
-            combine(currentLocation, obstacles, sensorsManager.yaw) { loc, obs, yaw ->
-                Triple(loc, obs, yaw)
+//    private fun listenToObstacles() {
+//        viewModelScope.launch {
+//            combine(currentLocation, obstacles, sensorsManager.yaw) { loc, obs, yaw ->
+//                Triple(loc, obs, yaw)
+//            }
+//                .filter { it.first != null }
+//                .sample(500L)
+//                .collect { (loc, obsList, yaw) ->
+//                    val userLoc = loc!!
+//                    val events = obsList.mapNotNull { obs ->
+//                        val sid = obstacleSampleIds[obs.type] ?: return@mapNotNull null
+//                        val d   = calculateDistance(
+//                            userLoc.latitude, userLoc.longitude,
+//                            obs.latitude,     obs.longitude
+//                        )
+//                        val az  = calculateAzimuth(
+//                            LatLng(userLoc.latitude, userLoc.longitude),
+//                            yaw.toFloat(),
+//                            LatLng(obs.latitude, obs.longitude)
+//                        )
+//                        AudioEvent(sid, az, d)
+//                    }
+//                    sequencer.playSequence(events)
+//                }
+//        }
+//    }
+//    private fun listenToRollAlert() {
+//        viewModelScope.launch {
+//            sensorsManager.roll
+//                .collect { roll ->
+//                    audioManager.scheduleRollAlert(roll)
+//                }
+//        }
+//    }
+//    private fun listenToDirectionAlerts() {
+//        viewModelScope.launch {
+//            combine(
+//                sensorsManager.yaw,
+//                currentLocation,
+//                beachSignalActive,
+//                northSignalActive
+//            ) { yaw, loc, beachOn, northOn ->
+//                Quad(yaw, loc, beachOn, northOn)
+//            }
+//                .filter { it.b != null }
+//                .sample(5000L)
+//                .collect { (yaw, loc, beachOn, northOn) ->
+//                    val userLoc = loc!!
+//
+//                    // Norte
+//                    if (northOn) {
+//                        audioManager.scheduleNorthSignal(yaw.toFloat(), 180f)
+//                    } else {
+//                        audioManager.stopNorthSignal()
+//                    }
+//
+//                    // Playa
+//                    if (beachOn) {
+//                        obstacles.value.find { it.type=="Playa" }?.let { beach ->
+//                            val d  = calculateDistance(
+//                                userLoc.latitude, userLoc.longitude,
+//                                beach.latitude,   beach.longitude
+//                            )
+//                            val az = calculateAzimuth(
+//                                LatLng(userLoc.latitude, userLoc.longitude),
+//                                yaw.toFloat(),
+//                                LatLng(beach.latitude, beach.longitude)
+//                            )
+//                            audioManager.scheduleBeachSignal(
+//                                beachAzimuth = az,
+//                                distance     = d,
+//                                minDistance  = BEACH_THRESHOLD_METERS
+//                            )
+//                        }
+//                    } else {
+//                        audioManager.stopBeachSignal()
+//                    }
+//                }
+//        }
+//    }
+
+    private fun listenToObstacles() = viewModelScope.launch {
+        combine(currentLocation, obstacles, sensorsManager.yaw) { loc, obs, yaw ->
+            Triple(loc, obs, yaw)
+        }
+            .filter { it.first!=null }
+            .sample(500L)
+            .collect { (loc, list, yaw) ->
+                val me = loc!!
+                list.forEachIndexed { idx, o ->
+                    val d = calculateDistance(me.latitude,me.longitude,o.latitude,o.longitude)
+                    val az = calculateAzimuth(LatLng(me.latitude,me.longitude),
+                        yaw.toFloat(),
+                        LatLng(o.latitude,o.longitude))
+                    if (o.type=="Boya") audioManager.playBuoy(az,d)
+                    else audioManager.playBoat((idx % 9)+1,az,d)
+                }
             }
-                .filter { it.first != null }
-                .sample(500L)
-                .collect { (loc, obsList, yaw) ->
-                    val userLoc = loc!!
-                    val events = obsList.mapNotNull { obs ->
-                        val sid = obstacleSampleIds[obs.type] ?: return@mapNotNull null
-                        val d   = calculateDistance(
-                            userLoc.latitude, userLoc.longitude,
-                            obs.latitude,     obs.longitude
-                        )
-                        val az  = calculateAzimuth(
-                            LatLng(userLoc.latitude, userLoc.longitude),
+    }
+
+    private fun listenToRoll() = viewModelScope.launch {
+        sensorsManager.roll.collect { audioManager.scheduleRollAlert(it) }
+    }
+
+    private fun listenToDirection() = viewModelScope.launch {
+        combine(sensorsManager.yaw, currentLocation, beachSignalActive, northSignalActive) { yaw,loc,b,n ->
+            Quad(yaw,loc,b,n)
+        }
+            .filter { it.b!=null }
+            .sample(5_000L)
+            .collect { (yaw, loc, beach, north) ->
+                if (north) audioManager.scheduleNorthSignal(yaw.toFloat())
+                else audioManager.stopNorthSignal()
+                if (beach) {
+                    _obstacles.value.find{it.type=="Playa"}?.let { p ->
+                        val d = calculateDistance(loc!!.latitude,loc.longitude,p.latitude,p.longitude)
+                        val az = calculateAzimuth(
+                            LatLng(loc.latitude,loc.longitude),
                             yaw.toFloat(),
-                            LatLng(obs.latitude, obs.longitude)
+                            LatLng(p.latitude,p.longitude)
                         )
-                        AudioEvent(sid, az, d)
+                        audioManager.scheduleBeachSignal(az,d)
                     }
-                    sequencer.playSequence(events)
-                }
-        }
-    }
-    private fun listenToRollAlert() {
-        viewModelScope.launch {
-            sensorsManager.roll
-                .collect { roll ->
-                    audioManager.scheduleRollAlert(roll)
-                }
-        }
-    }
-    private fun listenToDirectionAlerts() {
-        viewModelScope.launch {
-            combine(
-                sensorsManager.yaw,
-                currentLocation,
-                beachSignalActive,
-                northSignalActive
-            ) { yaw, loc, beachOn, northOn ->
-                Quad(yaw, loc, beachOn, northOn)
+                } else audioManager.stopBeachSignal()
             }
-                .filter { it.b != null }
-                .sample(500L)
-                .collect { (yaw, loc, beachOn, northOn) ->
-                    val userLoc = loc!!
-
-                    // Norte
-                    if (northOn) {
-                        audioManager.scheduleNorthSignal(yaw.toFloat())
-                    } else {
-                        audioManager.stopNorthSignal()
-                    }
-
-                    // Playa
-                    if (beachOn) {
-                        obstacles.value.find { it.type=="Playa" }?.let { beach ->
-                            val d  = calculateDistance(
-                                userLoc.latitude, userLoc.longitude,
-                                beach.latitude,   beach.longitude
-                            )
-                            val az = calculateAzimuth(
-                                LatLng(userLoc.latitude, userLoc.longitude),
-                                yaw.toFloat(),
-                                LatLng(beach.latitude, beach.longitude)
-                            )
-                            audioManager.scheduleBeachSignal(
-                                beachAzimuth = az,
-                                distance     = d,
-                                minDistance  = BEACH_THRESHOLD_METERS
-                            )
-                        }
-                    } else {
-                        audioManager.stopBeachSignal()
-                    }
-                }
-        }
     }
-
 
     fun addObstacle(req: CreateObstacleRequest) {
         viewModelScope.launch {
             obstacleRepository.createObstacle(ObstacleDto(
                 id = null,
-                latitude  = req.latitude,
+                latitude = req.latitude,
                 longitude = req.longitude,
-                type      = req.type,
-                name      = req.name
+                type = req.type,
+                name = req.name
             )).onSuccess {
                 _obstacles.value = _obstacles.value + it
             }.onFailure {
@@ -269,23 +325,16 @@ class LocationViewModel @Inject constructor(
         }
     }
 
-
-
     fun toggleBeachSignal() { _beachSignalActive.value = !_beachSignalActive.value }
     fun toggleNorthSignal() { _northSignalActive.value = !_northSignalActive.value }
-
-
-
 
     fun clearErrorMessage() { _errorMessage.value = null }
 
     override fun onCleared() {
         super.onCleared()
-
-        sequencer.release()
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+        //sequencer.release()
         audioManager.release()
+        fusedLocationClient.removeLocationUpdates(locationCallback)
     }
 }
-// Clase auxiliar para combinar 4 flujos
 private data class Quad<A,B,C,D>(val a:A, val b:B, val c:C, val d:D)

@@ -2,16 +2,19 @@ package com.solosailing.di
 
 import com.solosailing.data.repository.ObstacleRepository
 import com.solosailing.data.repository.ObstacleRepositoryImpl
-import dagger.Binds
+import com.solosailing.data.remote.api.ObstacleApiService
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class RepositoryModule {
-    @Binds
+object RepositoryModule {
+    @Provides
     @Singleton
-    abstract fun bindObstacleRepository(impl: ObstacleRepositoryImpl): ObstacleRepository
+    fun provideObstacleRepository(
+        api: ObstacleApiService
+    ): ObstacleRepository = ObstacleRepositoryImpl(api)
 }

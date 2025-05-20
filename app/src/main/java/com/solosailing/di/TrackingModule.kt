@@ -5,7 +5,6 @@ import android.content.Context
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.solosailing.auth.AuthTokenStore
-import com.solosailing.data.repository.TrackingService
 import com.solosailing.data.repository.TrackingWebSocket
 import dagger.Module
 import dagger.Provides
@@ -13,7 +12,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
-import retrofit2.Retrofit
 import jakarta.inject.Named
 import javax.inject.Singleton
 
@@ -34,11 +32,6 @@ object TrackingModule {
         @ApplicationContext ctx: Context
     ): FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(ctx)
-
-    @Provides
-    @Singleton
-    fun provideTrackingService(retrofit: Retrofit): TrackingService =
-        retrofit.create(TrackingService::class.java)
 
     @Provides
     @Singleton

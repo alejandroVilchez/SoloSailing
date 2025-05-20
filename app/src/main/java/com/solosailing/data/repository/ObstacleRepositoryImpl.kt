@@ -9,12 +9,11 @@ import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-@Singleton // Gestionado por Hilt
+@Singleton
 class ObstacleRepositoryImpl @Inject constructor(
     private val api: ObstacleApiService // Inyecta el servicio API
 ) : ObstacleRepository {
 
-    // Emite la lista de obstáculos. Podría añadir caché aquí si fuera necesario.
     override fun getObstaclesStream(): Flow<Result<List<ObstacleDto>>> = flow {
         runCatching { api.getObstacles() }
             .onSuccess { emit(Result.success(it)) }

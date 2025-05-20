@@ -8,20 +8,23 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.solosailing.data.remote.dto.RegattaDto
-import com.solosailing.viewModel.PastRegattasListViewModel
+import com.solosailing.navigation.Routes
+import com.solosailing.viewModel.LiveRegattasListViewModel
 
 
 @Composable
-fun PastRegattasListScreen(
+fun LiveRegattasListScreen(
     navController: NavController,
-    vm: PastRegattasListViewModel = hiltViewModel()
+    vm: LiveRegattasListViewModel = hiltViewModel()
 ) {
-    val regs = vm.regs.collectAsState(emptyList()).value
+    LaunchedEffect(Unit) { vm.load() }
+    val regs = vm.active.collectAsState(emptyList()).value
+
     LazyColumn {
         items(regs) { reg ->
             ListItem(
@@ -30,7 +33,9 @@ fun PastRegattasListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable {
-                        navController.navigate("past/${reg.id}")
+                        vm.open(reg.id) {
+                            navController.navigate("${Routes.LIVE_REGATTAS}/${reg.id}")
+                        }
                     }
             )
             HorizontalDivider()

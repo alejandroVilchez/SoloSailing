@@ -32,11 +32,9 @@ import java.util.concurrent.TimeUnit
 @Composable
 fun HomeScreen(navController: NavController) {
 
-    // Obtener ViewModels gestionados por Hilt
     val authViewModel: AuthViewModel = hiltViewModel()
     val trackingViewModel: TrackingViewModel = hiltViewModel()
 
-    // Observar estado
     val isLoggedIn by authViewModel.userToken.map { it != null }.collectAsState(initial = false)
     val trackingActive by trackingViewModel.trackingActive.collectAsState()
     val trackingTimeLeft by trackingViewModel.trackingTimeLeft.collectAsState()
@@ -46,22 +44,21 @@ fun HomeScreen(navController: NavController) {
     val roll by trackingViewModel.roll.collectAsState()
     val isSensorAvailable by trackingViewModel.isSensorAvailable.collectAsState()
 
-    // Estado para el diálogo de acceso restringido
     var showRestrictedAccessDialog by remember { mutableStateOf(false) }
     var targetRouteForDialog by remember { mutableStateOf<String?>(null) }
 
-    // Función para manejar clics en botones que requieren login
     val handleRestrictedAccess: (String) -> Unit = { route ->
         if (!isLoggedIn) {
-            targetRouteForDialog = route // Guarda la ruta a la que se quería ir
+            targetRouteForDialog = route
             showRestrictedAccessDialog = true
         } else {
-            // Si está logueado, navega directamente
             navController.navigate(route)
         }
     }
 
-    // --- UI Principal con Scaffold ---
+    var showNameDialog by remember { mutableStateOf(false) }
+    var newRegattaName by remember { mutableStateOf("") }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -89,9 +86,8 @@ fun HomeScreen(navController: NavController) {
             verticalArrangement = Arrangement.Center
         ) {
 
-            // Contenido basado en estado de login
             if (!isLoggedIn) {
-                // Vista Logged Out
+                // Vista sin login
                 Icon(Icons.Default.Home, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
@@ -145,17 +141,17 @@ fun HomeScreen(navController: NavController) {
 //                }
 
             } else {
-                // --- Vista Logged In ---
+                // sesión iniciada
                 Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(text = "Listo para navegar", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
                 Spacer(modifier = Modifier.height(24.dp))
 
 
-                // Botón Iniciar/Detener Tracking
+                // Botón tracking
                 Button(
                     onClick = {
-                        if (!trackingActive) trackingViewModel.startTracking("Mi Regata")
+                        if (!trackingActive) showNameDialog = true
                         else trackingViewModel.stopTracking()
                     },
                     colors = ButtonDefaults.buttonColors(
@@ -164,6 +160,32 @@ fun HomeScreen(navController: NavController) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(text = if (trackingActive) "DETENER TRACKING" else "INICIAR TRACKING")
+                }
+                if (showNameDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showNameDialog = false },
+                        title = { Text("Nombre de la regata") },
+                        text = {
+                            OutlinedTextField(
+                                value = newRegattaName,
+                                onValueChange = { newRegattaName = it },
+                                label = { Text("Regatta") }
+                            )
+                        },
+                        confirmButton = {
+                            Button(onClick = {
+                                trackingViewModel.startTracking(newRegattaName.trim())
+                                showNameDialog = false
+                            }) {
+                                Text("Crear")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showNameDialog = false }) {
+                                Text("Cancelar")
+                            }
+                        }
+                    )
                 }
                 if(trackingActive){
                     Spacer(Modifier.height(8.dp))
@@ -174,7 +196,7 @@ fun HomeScreen(navController: NavController) {
                 }
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Botón Ver Mapa
+                // botón mapa
                 Button(
                     onClick = { navController.navigate(Routes.MAP) },
                     enabled = trackingActive,
@@ -186,7 +208,7 @@ fun HomeScreen(navController: NavController) {
                 }
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Botón Ver Regatas Pasadas
+                // Botón regatas pasadas
                 Button(
                     onClick = { navController.navigate(Routes.PAST_REGATTAS) },
                     modifier = Modifier.fillMaxWidth()
@@ -198,9 +220,9 @@ fun HomeScreen(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Botón Ver Regatas Activas
+                // Botónregatas activas
                 Button(
-                    onClick = { navController.navigate("${Routes.LIVE_REGATTAS}/demo") },
+                    onClick = {  navController.navigate(Routes.LIVE_REGATTAS) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
@@ -239,11 +261,11 @@ fun HomeScreen(navController: NavController) {
                         Text("Sensor de orientación no disponible en este dispositivo.")
                     }
                 }
-            } // Fin else (logged in)
-        } // Fin Column principal
-    } // Fin Scaffold
+            }
+        }
+    }
 
-    // --- Diálogo de Acceso Restringido ---
+    // sin login
     if (showRestrictedAccessDialog) {
         AlertDialog(
             onDismissRequest = { showRestrictedAccessDialog = false },

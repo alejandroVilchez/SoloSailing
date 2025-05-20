@@ -2,15 +2,17 @@ package com.solosailing.viewModel
 
 import android.annotation.SuppressLint
 import android.util.Log
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.location.FusedLocationProviderClient
-import com.solosailing.data.repository.CreateRegattaRequest
-import com.solosailing.data.repository.TrackingService
+import com.solosailing.data.remote.api.RegattaApiService
+import com.solosailing.data.remote.dto.CreateRegattaRequest
 import com.solosailing.data.repository.TrackingUpdate
 import com.solosailing.data.repository.TrackingWebSocket
-import com.solosailing.sensors.SensorsManager // Import el manager
-import dagger.hilt.android.lifecycle.HiltViewModel // Importa anotación Hilt
+import com.solosailing.sensors.SensorsManager
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -23,8 +25,9 @@ import kotlinx.coroutines.tasks.await
 class TrackingViewModel @Inject constructor(
     private val sensorsManager: SensorsManager,
     private val fusedClient: FusedLocationProviderClient,
-    private val repo: TrackingService,
+    private val repo: RegattaApiService,
     private val wsHelper: TrackingWebSocket
+
 ) : ViewModel() {
 
     private var regattaId: String? = null
@@ -49,7 +52,7 @@ class TrackingViewModel @Inject constructor(
         runCatching {
             repo.createRegatta(CreateRegattaRequest(regattaName))
         }.onSuccess {
-            resp -> regattaId = resp.regattaId
+            resp -> regattaId = resp.id
             wsHelper.connect(regattaId!!, object: WebSocketListener(){})
             sensorsManager.startSensorUpdates()
             _trackingActive.value = true
@@ -65,11 +68,11 @@ class TrackingViewModel @Inject constructor(
                     wsHelper.sendUpdate(
                         TrackingUpdate(
                             regattaId = regattaId!!,
+                            boatId = "boat1",
                             latitude = loc.latitude,
                             longitude = loc.longitude,
                             yaw = yaw.value,
                             timestamp = System.currentTimeMillis()
-
                         )
                     )
                 }

@@ -194,9 +194,9 @@ class RegattaSimulationViewModel @Inject constructor(
                 .sample(5000L)
                 .collect { (yaw, northOn) ->
                     if (northOn) {
-                        audioManager.scheduleNorthSignal(yaw, 180f)   // arranca o mantiene el ping
+                        audioManager.scheduleNorthSignal(yaw, 180f)
                     } else {
-                        audioManager.stopNorthSignal()           // lo para al instante
+                        audioManager.stopNorthSignal()
                     }
                 }
         }

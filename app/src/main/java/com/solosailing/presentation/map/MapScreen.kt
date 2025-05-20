@@ -187,25 +187,41 @@ fun MapScreen(navController: NavController) {
                     val pos = LatLng(obstacle.latitude, obstacle.longitude)
                     val hue = when (obstacle.type) {
                         "Boya" -> BitmapDescriptorFactory.HUE_BLUE
-                        "Bote" -> BitmapDescriptorFactory.HUE_GREEN
+                        //"Bote" -> BitmapDescriptorFactory.fromResource(R.drawable.direction_icon8)
                         "Playa" -> BitmapDescriptorFactory.HUE_YELLOW
                         else -> BitmapDescriptorFactory.HUE_RED
                     }
                     val markerState = rememberUpdatedMarkerState(position = pos)
+                    if(obstacle.type == "Bote") { 
+                        Marker(
+                            state = markerState,
+                            title = obstacle.name,
+                            icon = BitmapDescriptorFactory.fromResource(R.drawable.direction_icon8),
+                            flat = true,
+                            onClick = {
+                                obstacleIdToDelete = obstacle.id
+                                obstacleTypeToDelete = obstacle.type
+                                showDeleteDialog = true
+                                true
 
-                    Marker(
-                        state = markerState,
-                        title = obstacle.name,
-                        icon = BitmapDescriptorFactory.defaultMarker(hue),
-                        flat = true,
-                        onClick = {
-                            obstacleIdToDelete = obstacle.id
-                            obstacleTypeToDelete = obstacle.type
-                            showDeleteDialog = true
-                            true
+                            }
+                        )
+                    }else {
+                        Marker(
+                            state = markerState,
+                            title = obstacle.name,
+                            icon = BitmapDescriptorFactory.defaultMarker(hue),
+                            flat = true,
+                            onClick = {
+                                obstacleIdToDelete = obstacle.id
+                                obstacleTypeToDelete = obstacle.type
+                                showDeleteDialog = true
+                                true
 
-                        }
-                    )
+                            }
+                        )
+                    }
+
                 }
             }
 

@@ -19,9 +19,8 @@ class PastRegattasListViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            runCatching { api.listRegattas() }
-                .onSuccess { _regs.value = it }
-            // .onFailure {  }
+            val all = api.listRegattas()
+            _regs.value = all.filter { !it.isLive }
         }
     }
 }
