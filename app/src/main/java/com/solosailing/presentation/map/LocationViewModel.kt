@@ -34,6 +34,8 @@ import com.solosailing.R
 import com.solosailing.utils.calculateAzimuth
 import com.solosailing.utils.calculateDistance
 
+enum class DirectionMode { Off, Beach, North }
+
 @HiltViewModel
 class LocationViewModel @Inject constructor(
     private val application: Application,
@@ -61,6 +63,9 @@ class LocationViewModel @Inject constructor(
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private val _mode = MutableStateFlow(DirectionMode.Off)
+    val mode: StateFlow<DirectionMode> = _mode.asStateFlow()
 
     private val _beachSignalActive = MutableStateFlow(false)
     val beachSignalActive: StateFlow<Boolean> = _beachSignalActive.asStateFlow()
@@ -235,7 +240,7 @@ class LocationViewModel @Inject constructor(
                         yaw.toFloat(),
                         LatLng(o.latitude,o.longitude))
                     if (o.type=="Boya") audioManager.playBuoy(az,d)
-                    else audioManager.playBoat((idx % 9)+1,az,d)
+                    else if (o.type=="Bote") audioManager.playBoat((idx % 9)+1,az,d)
                 }
             }
     }
@@ -245,25 +250,37 @@ class LocationViewModel @Inject constructor(
     }
 
     private fun listenToDirection() = viewModelScope.launch {
-        combine(sensorsManager.yaw, currentLocation, beachSignalActive, northSignalActive) { yaw,loc,b,n ->
-            Quad(yaw,loc,b,n)
-        }
-            .filter { it.b!=null }
+        combine(sensorsManager.yaw, currentLocation, mode) { yaw, loc, m -> Triple(yaw, loc, m) }
+            .filter { it.second != null }
             .sample(5_000L)
-            .collect { (yaw, loc, beach, north) ->
-                if (north) audioManager.scheduleNorthSignal(yaw.toFloat())
-                else audioManager.stopNorthSignal()
-                if (beach) {
-                    _obstacles.value.find{it.type=="Playa"}?.let { p ->
-                        val d = calculateDistance(loc!!.latitude,loc.longitude,p.latitude,p.longitude)
-                        val az = calculateAzimuth(
-                            LatLng(loc.latitude,loc.longitude),
-                            yaw.toFloat(),
-                            LatLng(p.latitude,p.longitude)
+            .collect { (yaw, loc, m) ->
+                audioManager.stopNorthSignal()
+                audioManager.stopBeachSignal()
+
+                when (m) {
+                    DirectionMode.Beach -> {
+                        audioManager.stopNorthSignal()
+                        val beach = obstacles.value.find { it.type == "Playa" } ?: return@collect
+                        val d  = calculateDistance(
+                            loc!!.latitude, loc.longitude,
+                            beach.latitude, beach.longitude
                         )
-                        audioManager.scheduleBeachSignal(az,d)
+                        val az = calculateAzimuth(
+                            LatLng(loc.latitude, loc.longitude),
+                            yaw.toFloat(),
+                            LatLng(beach.latitude, beach.longitude)
+                        )
+                        audioManager.scheduleBeachSignal(az, d)
                     }
-                } else audioManager.stopBeachSignal()
+                    DirectionMode.North -> {
+                        audioManager.stopBeachSignal()
+                        audioManager.scheduleNorthSignal(yaw.toFloat(), 180f)
+                    }
+                    DirectionMode.Off   -> {
+                        audioManager.stopNorthSignal()
+                        audioManager.stopBeachSignal()
+                    }
+                }
             }
     }
 
@@ -325,8 +342,24 @@ class LocationViewModel @Inject constructor(
         }
     }
 
-    fun toggleBeachSignal() { _beachSignalActive.value = !_beachSignalActive.value }
-    fun toggleNorthSignal() { _northSignalActive.value = !_northSignalActive.value }
+    //fun toggleBeachSignal() { _beachSignalActive.value = !_beachSignalActive.value }
+    fun toggleBeachSignal() {
+        _mode.value = if (_mode.value == DirectionMode.Beach) DirectionMode.Off
+        else DirectionMode.Beach
+    }
+    //fun toggleNorthSignal() { _northSignalActive.value = !_northSignalActive.value }
+    fun toggleNorthSignal() {
+        _mode.value = if (_mode.value == DirectionMode.North) DirectionMode.Off
+        else DirectionMode.North
+    }
+
+    fun cycleMode() {
+        _mode.value = when (_mode.value) {
+            DirectionMode.Off   -> DirectionMode.Beach
+            DirectionMode.Beach -> DirectionMode.North
+            DirectionMode.North -> DirectionMode.Off
+        }
+    }
 
     fun clearErrorMessage() { _errorMessage.value = null }
 

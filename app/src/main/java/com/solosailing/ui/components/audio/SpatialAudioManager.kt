@@ -43,31 +43,55 @@ class SpatialAudioManager @Inject constructor(
     private var rollJob: Job?  = null
     private var northJob: Job? = null
     private var beachJob: Job? = null
+    private var lastRollCount = 0
     private var lastHour = -1
     private var lastBeachParams: Pair<Int,Float>? = null
+
+    private fun azimuthToHour(az: Float): Int {
+        // lo llevamos a 0..360
+        val deg = (az % 360 + 360) % 360
+        // cada sector de 30° es una “hora”, floor+1 → [1..12]
+        val h = (deg / 30f).toInt() + 1
+        return h.coerceIn(1, 12)
+    }
 
     fun initialize() {
         listOf(tiltRes, buoyRes).forEach(engine::loadRawPcm)
         northRes.values.forEach(engine::loadRawPcm)
-        beachRes.values.forEach(engine::loadRawPcm)
-        distRes.values.forEach(engine::loadRawPcm)
+//        beachRes.values.forEach(engine::loadRawPcm)
+//        distRes.values.forEach(engine::loadRawPcm)
+        beachRes.values.filter { it != 0 }.forEach(engine::loadRawPcm) //para que no pete cuando no hay marcador
+        distRes .values.filter { it != 0 }.forEach(engine::loadRawPcm)
         boatRes.values.forEach(engine::loadRawPcm)
     }
 
     /** Roll alert */
-    fun scheduleRollAlert(roll: Float, threshold: Float = 10f) {
-        val mag = abs(roll)
-        if (mag < threshold) { rollJob?.cancel(); return }
-        val count = ((mag - threshold)/threshold).toInt().coerceIn(1,3)
-        rollJob?.cancel()
+    fun scheduleRollAlert(roll: Float) {
+        // umbral “10°”
+        val absRoll = abs(roll)
+        val count = when {
+            absRoll < 10f -> 0
+            absRoll < 20f -> 1
+            absRoll < 30f -> 2
+            else -> 3
+        }
+        if (count == 0) {
+            rollJob?.cancel()
+            return
+        }
+        rollJob?.let {
+            if (it.isActive && lastRollCount == count) return
+            it.cancel()
+        }
+        lastRollCount = count
         rollJob = scope.launch {
             while (isActive) {
                 repeat(count) {
-                    val pan = if (roll<0) -30f else +30f
-                    engine.playSpatial(tiltRes, pan, 0f)
+                    val pan = if (roll < 0f) -1f else +1f   // -1=izq, +1=der
+                    engine.playSpatial(tiltRes, pan * 90f, 0f)
                     delay(100L)
                 }
-                delay(1000L)
+                delay(1_000L)
             }
         }
     }
@@ -77,7 +101,8 @@ class SpatialAudioManager @Inject constructor(
     fun scheduleNorthSignal(heading: Float, thresh: Float = 30f) {
         val az = ((-heading+360)%360).let{ if (it>180) it-360 else it }
         if (abs(az)>thresh) { northJob?.cancel(); lastHour=-1; return }
-        val hour = ((az+360)/30).roundToInt().coerceIn(1,12)
+        //val hour = ((az+360)/30).roundToInt().coerceIn(1,12)
+        val hour = azimuthToHour(az)
         if (northJob?.isActive==true && lastHour==hour) return
         lastHour=hour; northJob?.cancel()
         val res = northRes[hour] ?: return
@@ -92,8 +117,9 @@ class SpatialAudioManager @Inject constructor(
 
     /** Beach signal */
     fun scheduleBeachSignal(az: Float, dist: Float) {
-        val hour   = ((az+360)/30).roundToInt().coerceIn(1,12)
-        val bucket = distRes.keys.first { dist<=it }
+        //val hour   = ((az+360)/30).roundToInt().coerceIn(1,12)
+        val hour = azimuthToHour(az)
+        val bucket = distRes.keys.firstOrNull { dist <= it }?: distRes.keys.maxOrNull()!!
         val params = hour to bucket
         if (beachJob?.isActive==true && lastBeachParams==params) return
         lastBeachParams=params; beachJob?.cancel()

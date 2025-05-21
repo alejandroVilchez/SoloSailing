@@ -230,7 +230,7 @@ fun HomeScreen(navController: NavController) {
                     Text(text = "Ver regatas activas")
                 }
 
-                // Botones de Configuración
+                // Botones de configuración
                 Button(
                     onClick = { navController.navigate(Routes.SOUND_SETTINGS) },
                     modifier = Modifier.fillMaxWidth()

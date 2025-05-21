@@ -73,8 +73,11 @@ fun MapScreen(navController: NavController) {
     val roll by trackingViewModel.roll.collectAsState()
 
     val isSensorAvailable by trackingViewModel.isSensorAvailable.collectAsState()
+
     val beachSignalActive by locationViewModel.beachSignalActive.collectAsState()
     val northSignalActive by locationViewModel.northSignalActive.collectAsState()
+    val mode by locationViewModel.mode.collectAsState()
+
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(41.3851, 2.1734), 0f)
@@ -231,30 +234,26 @@ fun MapScreen(navController: NavController) {
             }
             // Interfaz de Usuario
 
-            Column(
-                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
-                horizontalAlignment = Alignment.End
-            ) {
-                // Botón Señal Playa
+            Column(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
                 FloatingActionButton(
                     onClick = { locationViewModel.toggleBeachSignal() },
-                    //modifier = Modifier.size(48.dp),
-                    containerColor = if (beachSignalActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer // Acceso a beachSignalActive
+                    containerColor = if (mode == DirectionMode.Beach)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.secondaryContainer
                 ) {
-                    //Icon(Icons.Default.Star, contentDescription = "Activar/Desactivar Señal Playa") // Icono WavingHand o similar
-                    Text("Dirección playa", modifier = Modifier.padding(start = 8.dp))
+                    Text("Playa")
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                // Botón Señal Norte
+                Spacer(Modifier.height(8.dp))
                 FloatingActionButton(
                     onClick = { locationViewModel.toggleNorthSignal() },
-                    //modifier = Modifier.size(48.dp),
-                    containerColor = if (northSignalActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer // Acceso a northSignalActive
+                    containerColor = if (mode == DirectionMode.North)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.secondaryContainer
                 ) {
-                    //Icon(Icons.Default.Star, contentDescription = "Activar/Desactivar Señal Norte")
-                    Text("Dirección norte", modifier = Modifier.padding(start = 8.dp))
+                    Text("Norte")
                 }
-
             }
             Column(
                 modifier = Modifier.align(Alignment.TopStart).padding(16.dp),
