@@ -9,10 +9,12 @@ import com.solosailing.R
 import com.solosailing.data.remote.dto.SimulationData
 import com.solosailing.data.remote.dto.IntroBuoyDto
 import com.solosailing.data.remote.dto.IntroPositionDto
+import com.solosailing.presentation.map.DirectionMode
 import com.solosailing.sensors.SensorsManager
 import com.solosailing.ui.components.audio.AudioEvent
 import com.solosailing.ui.components.audio.AudioManager
 import com.solosailing.ui.components.audio.AudioSequencer
+import com.solosailing.ui.components.audio.SpatialAudioManager
 import com.solosailing.utils.calculateAzimuth
 import com.solosailing.utils.calculateDistance
 import dagger.hilt.EntryPoint
@@ -38,13 +40,12 @@ import java.lang.System.console
 data class IntroBuoy(val name: String, val latLng: LatLng)
 data class IntroPoint(val latLng: LatLng, val yaw: Float)
 
-
 @HiltViewModel
 class RegattaSimulationViewModel @Inject constructor(
     private val application: Application,
-    val sensorsManager: SensorsManager,
-    private val audioManager: AudioManager,
-    private val sequencer: AudioSequencer
+    //val sensorsManager: SensorsManager,
+    private val audioManager: SpatialAudioManager,
+    //private val sequencer: AudioSequencer
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -60,10 +61,10 @@ class RegattaSimulationViewModel @Inject constructor(
     private val _positions  = MutableStateFlow<Map<String, List<IntroPoint>>>(emptyMap())
     val positions: StateFlow<Map<String, List<IntroPoint>>> = _positions
 
-    private val boatSampleIds = mutableMapOf<String, Int>()
+   //private val boatSampleIds = mutableMapOf<String, Int>()
 
-    private val _beachSignalActive = MutableStateFlow(false)
-    val beachSignalActive: StateFlow<Boolean> = _beachSignalActive.asStateFlow()
+    private val _mode = MutableStateFlow(DirectionMode.Off)
+    val mode: StateFlow<DirectionMode> = _mode.asStateFlow()
 
     private val _northSignalActive = MutableStateFlow(false)
     val northSignalActive: StateFlow<Boolean> = _northSignalActive.asStateFlow()
@@ -78,7 +79,7 @@ class RegattaSimulationViewModel @Inject constructor(
         _positions.value[selBoat]?.getOrNull(idx)?.yaw
     }.filterNotNull().stateIn(viewModelScope, SharingStarted.Lazily, 0f)
 
-    private var buoySampleId: Int = 0
+    //private var buoySampleId: Int = 0
 
 
     init {
@@ -101,20 +102,20 @@ class RegattaSimulationViewModel @Inject constructor(
                     )
                 }
             }
-
-            val samples = listOf(
-                R.raw.boat_1, R.raw.boat_2, R.raw.boat_3,
-                R.raw.boat_4, R.raw.boat_5, R.raw.boat_6,
-                R.raw.boat_7, R.raw.boat_8, R.raw.boat_9
-            )
-            _positions.value.keys.forEachIndexed { idx, boatId ->
-                boatSampleIds[boatId] =
-                    sequencer.loadSample(samples.getOrElse(idx) { samples.last() })
-            }
-            buoySampleId = sequencer.loadSample(R.raw.buoy)
+//            val samples = listOf(
+//                R.raw.boat_1, R.raw.boat_2, R.raw.boat_3,
+//                R.raw.boat_4, R.raw.boat_5, R.raw.boat_6,
+//                R.raw.boat_7, R.raw.boat_8, R.raw.boat_9
+//            )
+//            _positions.value.keys.forEachIndexed { idx, boatId ->
+//                boatSampleIds[boatId] =
+//                    sequencer.loadSample(samples.getOrElse(idx) { samples.last() })
+//            }
+//            buoySampleId = sequencer.loadSample(R.raw.buoy)
             _selectedBoatId.value = _positions.value.keys.firstOrNull()
-            listenToSimulationAudio()
+//            listenToSimulationAudio()
         }
+        listenToSimulationAudio()
         listenToDirectionAlerts()
     }
 
@@ -156,59 +157,67 @@ class RegattaSimulationViewModel @Inject constructor(
                     val origin = vp.latLng
                     val heading = vp.yaw
 
-                    val boatEvents = routes.entries
+                    routes.entries
                         .filter { it.key != selBoat }
-                        .mapNotNull { (boatId, r) ->
+                        .forEach { (boatId, r) ->
                             r.getOrNull(idx)?.let { pt ->
-                                val d = calculateDistance(
+                                val d  = calculateDistance(
                                     origin.latitude, origin.longitude,
-                                    pt.latLng.latitude, pt.latLng.longitude
+                                    pt.latLng.latitude,    pt.latLng.longitude
                                 )
-                                if (d > MAX_DISTANCE) return@mapNotNull null
-                                val az = calculateAzimuth(origin, heading, pt.latLng)
-                                AudioEvent(boatSampleIds[boatId]!!, az, d)
+                                if (d <= MAX_DISTANCE) {
+                                    val az = calculateAzimuth(origin, heading, pt.latLng)
+                                    val index = routes.keys.indexOf(boatId) + 1
+                                    audioManager.playBoat(index, az, d)
+                                }
                             }
                         }
-                    val buoyEvents = buoys.mapNotNull { buoy ->
+                    buoys.forEach { buoy ->
                         val d = calculateDistance(
                             origin.latitude, origin.longitude,
                             buoy.latLng.latitude, buoy.latLng.longitude
                         )
-                        if (d > MAX_DISTANCE * 2) return@mapNotNull null
-                        val az = calculateAzimuth(origin, heading, buoy.latLng)
-                        AudioEvent(buoySampleId, az, d)
+                        if (d <= MAX_DISTANCE * 2) {
+                            val az = calculateAzimuth(origin, heading, buoy.latLng)
+                            audioManager.playBuoy(az, d)
+                        }
                     }
-
-                    sequencer.playSequence(boatEvents + buoyEvents)
                 }
         }
     }
 
-    private fun listenToDirectionAlerts() {
-        viewModelScope.launch {
-            combine(
-                boatYaw,
-                northSignalActive
-            ) { yaw, northOn -> yaw to northOn }
-                .filter { it.second }
-                .sample(5000L)
-                .collect { (yaw, northOn) ->
-                    if (northOn) {
+    private fun listenToDirectionAlerts() = viewModelScope.launch {
+        combine(
+            boatYaw,
+            mode
+        ) { yaw, m -> yaw to m }
+            //.filter { it.second == DirectionMode.North }
+            .sample(5_000L)
+            .collect { (yaw, m) ->
+                audioManager.stopNorthSignal()
+                when(m){
+                    DirectionMode.Beach -> {
+
+                    }
+                    DirectionMode.North -> {
                         audioManager.scheduleNorthSignal(yaw, 180f)
-                    } else {
+                    }
+                    DirectionMode.Off -> {
                         audioManager.stopNorthSignal()
                     }
                 }
-        }
+            }
     }
 
     fun toggleNorthSignal() {
-        _northSignalActive.value = !_northSignalActive.value
-        Log.d("RegattaSimulation", "Dirección norte: ${_northSignalActive.value}")    }
+        _mode.value = if (_mode.value == DirectionMode.North) DirectionMode.Off
+        else DirectionMode.North
+    }
+
 
     override fun onCleared() {
         super.onCleared()
-        sequencer.release()
+        //sequencer.release()
         audioManager.release()
     }
 }

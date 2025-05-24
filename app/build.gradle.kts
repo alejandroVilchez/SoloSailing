@@ -99,8 +99,7 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
-
-
+    implementation("androidx.media:media:1.6.0")
 
     // Test
     testImplementation(libs.junit)

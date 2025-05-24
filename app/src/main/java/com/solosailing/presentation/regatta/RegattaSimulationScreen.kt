@@ -1,6 +1,8 @@
 package com.solosailing.presentation.regatta
 
 import android.annotation.SuppressLint
+import android.app.PendingIntent
+import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -9,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -16,9 +19,14 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
+import com.solosailing.App
 import com.solosailing.R
 import com.solosailing.viewModel.RegattaSimulationViewModel
 import kotlinx.coroutines.delay
+import androidx.media.session.MediaButtonReceiver
+import android.support.v4.media.session.MediaSessionCompat
+import android.view.KeyEvent
+
 
 @SuppressLint("UnrememberedMutableState")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,7 +40,6 @@ fun RegattaSimulationScreen(
 
     val northSignalActive by vm.northSignalActive.collectAsState()
 
-
     var expanded by remember { mutableStateOf(false) }
     var selectedId by remember { mutableStateOf(routes.keys.firstOrNull() ?: "") }
 
@@ -42,8 +49,57 @@ fun RegattaSimulationScreen(
             14f
         )
     }
+    val context = LocalContext.current
+    val mediaSession = remember { (context as App).getMediaSession() }
+    val mediaButtonIntent = remember {
+        Intent(Intent.ACTION_MEDIA_BUTTON)
+            .setClass(context, MediaButtonReceiver::class.java)
+    }
+    val mediaButtonPendingIntent = remember {
+        PendingIntent.getBroadcast(
+            context, 0,
+            mediaButtonIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
 
     var running by remember { mutableStateOf(false) }
+    DisposableEffect(mediaSession, mediaButtonPendingIntent) {
+        mediaSession.setFlags(
+            MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS or
+                    MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS
+        )
+        mediaSession.setMediaButtonReceiver(mediaButtonPendingIntent)
+        mediaSession.setCallback(object : MediaSessionCompat.Callback() {
+            override fun onMediaButtonEvent(intent: Intent): Boolean {
+                val ev = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
+                if (ev?.action == KeyEvent.ACTION_DOWN) {
+                    when (ev.keyCode) {
+                        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                            running = !running
+                            vm.toggleNorthSignal()
+                            return true
+                        }
+                        KeyEvent.KEYCODE_MEDIA_NEXT -> {
+                            vm.advance()
+                            return true
+                        }
+                        KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
+                            vm.rewind()
+                            return true
+                        }
+                    }
+                }
+                return super.onMediaButtonEvent(intent)
+            }
+        })
+        mediaSession.isActive = true
+        onDispose {
+            mediaSession.isActive = false
+            mediaSession.setCallback(null)
+            mediaSession.setMediaButtonReceiver(null)
+        }
+    }
 
     LaunchedEffect(running) {
         while (running) {
@@ -146,7 +202,7 @@ fun RegattaSimulationScreen(
                 ) {
                     //Icon(Icons.Default.Star, contentDescription = "Activar/Desactivar Señal Norte")
                     //align
-                    Text("Dirección norte")
+                    Text("Norte")
                 }
             }
         }

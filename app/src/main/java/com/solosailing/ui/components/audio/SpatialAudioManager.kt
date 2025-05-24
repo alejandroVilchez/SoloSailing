@@ -70,9 +70,9 @@ class SpatialAudioManager @Inject constructor(
         // umbral “10°”
         val absRoll = abs(roll)
         val count = when {
-            absRoll < 10f -> 0
-            absRoll < 20f -> 1
-            absRoll < 30f -> 2
+            absRoll < 15f -> 0
+            absRoll < 25f -> 1
+            absRoll < 35f -> 2
             else -> 3
         }
         if (count == 0) {
@@ -142,6 +142,7 @@ class SpatialAudioManager @Inject constructor(
     fun playBuoy(azimuth: Float, distance: Float) {
         engine.playSpatial(buoyRes, azimuth, distance)
     }
+
 
     fun release() {
         scope.cancel()

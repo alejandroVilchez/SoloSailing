@@ -2,7 +2,6 @@ package com.solosailing.presentation.map
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -44,6 +43,12 @@ import androidx.core.content.ContextCompat
 import com.solosailing.data.remote.dto.CreateObstacleRequest
 import kotlinx.coroutines.channels.ActorScope
 import java.util.UUID
+import android.content.Intent
+import android.support.v4.media.session.MediaSessionCompat
+import android.view.KeyEvent
+import androidx.media.session.MediaButtonReceiver
+import com.solosailing.App
+import android.app.PendingIntent
 
 @SuppressLint("MissingPermission", "UnrememberedGetBackStackEntry")
 @Composable
@@ -53,6 +58,53 @@ fun MapScreen(navController: NavController) {
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val locationViewModel: LocationViewModel = hiltViewModel()
+
+    val mediaSession = remember { (context as App).getMediaSession() }
+
+    val mediaButtonIntent = remember {
+        Intent(Intent.ACTION_MEDIA_BUTTON)
+            .setClass(context, MediaButtonReceiver::class.java)
+    }
+    val mediaButtonPendingIntent = remember {
+        PendingIntent.getBroadcast(
+            context,
+            0,
+            mediaButtonIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    // ③ Asocia al mediaSession
+    DisposableEffect(mediaSession, mediaButtonPendingIntent) {
+        mediaSession.setFlags(
+            MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS or
+                    MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS
+        )
+        mediaSession.setMediaButtonReceiver(mediaButtonPendingIntent)
+        mediaSession.setCallback(object : MediaSessionCompat.Callback() {
+            override fun onMediaButtonEvent(intent: Intent): Boolean {
+                val ev = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
+                if (ev?.action == KeyEvent.ACTION_DOWN) {
+                    when (ev.keyCode) {
+                        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+                        KeyEvent.KEYCODE_MEDIA_NEXT,
+                        KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
+                            locationViewModel.cycleMode()
+                            return true
+                        }
+                    }
+                }
+                return super.onMediaButtonEvent(intent)
+            }
+        })
+        mediaSession.isActive = true
+
+        onDispose {
+            mediaSession.isActive = false
+            mediaSession.setCallback(null)
+            mediaSession.setMediaButtonReceiver(null)
+        }
+    }
 
     val parentEntry = remember {
         navController.getBackStackEntry(Routes.HOME)
@@ -74,8 +126,8 @@ fun MapScreen(navController: NavController) {
 
     val isSensorAvailable by trackingViewModel.isSensorAvailable.collectAsState()
 
-    val beachSignalActive by locationViewModel.beachSignalActive.collectAsState()
-    val northSignalActive by locationViewModel.northSignalActive.collectAsState()
+    //val beachSignalActive by locationViewModel.beachSignalActive.collectAsState()
+    //val northSignalActive by locationViewModel.northSignalActive.collectAsState()
     val mode by locationViewModel.mode.collectAsState()
 
 
