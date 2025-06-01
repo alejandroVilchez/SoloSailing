@@ -199,6 +199,9 @@ class RegattaSimulationViewModel @Inject constructor(
                     DirectionMode.Beach -> {
 
                     }
+                    DirectionMode.Buoy -> {
+
+                    }
                     DirectionMode.North -> {
                         audioManager.scheduleNorthSignal(yaw, 180f)
                     }

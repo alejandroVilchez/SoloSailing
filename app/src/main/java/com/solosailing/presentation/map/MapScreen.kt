@@ -86,8 +86,14 @@ fun MapScreen(navController: NavController) {
                 val ev = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
                 if (ev?.action == KeyEvent.ACTION_DOWN) {
                     when (ev.keyCode) {
-                        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
-                        KeyEvent.KEYCODE_MEDIA_NEXT,
+                        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                            locationViewModel.buoyMode()
+                            return true
+                        }
+                        KeyEvent.KEYCODE_MEDIA_NEXT -> {
+                            locationViewModel.cycleMode()
+                            return true
+                        }
                         KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
                             locationViewModel.cycleMode()
                             return true
@@ -412,9 +418,11 @@ private fun AddObstacleDialog(
     onDismiss: () -> Unit,
     onConfirm: (type: String, name: String) -> Unit
 ) {
-    var selectedType by rememberSaveable { mutableStateOf("Boya") }
+    var selectedType by rememberSaveable { mutableStateOf("Boya 1") }
     var obstacleName by rememberSaveable { mutableStateOf("") }
     val types = listOf("Boya", "Bote", "Playa")
+    val boyaSubtypes = listOf("Boya 1", "Boya 2", "Boya 3")
+    var isBoyaSelected by rememberSaveable { mutableStateOf(selectedType.startsWith("Boya")) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -428,19 +436,47 @@ private fun AddObstacleDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { selectedType = type }
+                            .clickable {
+                                selectedType = if (type == "Boya") "Boya 1" else type
+                                isBoyaSelected = (type == "Boya")
+                            }
                             .padding(vertical = 4.dp)
                     ) {
                         RadioButton(
-                            selected = (type == selectedType),
-                            onClick = { selectedType = type }
+                            selected = (type == "Boya" && isBoyaSelected) || (type == selectedType && !isBoyaSelected),
+                            onClick = {
+                                selectedType = if (type == "Boya") "Boya 1" else type
+                                isBoyaSelected = (type == "Boya")
+                            }
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(text = type.replaceFirstChar { it.uppercase() })
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
 
+                if (isBoyaSelected) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Nombre de la boya:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    boyaSubtypes.forEach { subtype ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedType = subtype }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            RadioButton(
+                                selected = (selectedType == subtype),
+                                onClick = { selectedType = subtype }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = subtype)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
                     value = obstacleName,
                     onValueChange = { obstacleName = it },

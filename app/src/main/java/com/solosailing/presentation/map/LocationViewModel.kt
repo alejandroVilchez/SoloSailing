@@ -34,8 +34,8 @@ import com.solosailing.R
 import com.solosailing.utils.calculateAzimuth
 import com.solosailing.utils.calculateDistance
 
-enum class DirectionMode { Off, Beach, North }
-
+enum class DirectionMode { Off, Buoy, Beach, North }
+enum class BuoyMode { Off, Buoy1, Buoy2, Buoy3 }
 @HiltViewModel
 class LocationViewModel @Inject constructor(
     private val application: Application,
@@ -66,6 +66,9 @@ class LocationViewModel @Inject constructor(
 
     private val _mode = MutableStateFlow(DirectionMode.Off)
     val mode: StateFlow<DirectionMode> = _mode.asStateFlow()
+
+    private val _buoyMode = MutableStateFlow(BuoyMode.Off)
+    val buoyMode: StateFlow<BuoyMode> = _buoyMode.asStateFlow()
 
     private val _beachSignalActive = MutableStateFlow(false)
     val beachSignalActive: StateFlow<Boolean> = _beachSignalActive.asStateFlow()
@@ -250,16 +253,77 @@ class LocationViewModel @Inject constructor(
     }
 
     private fun listenToDirection() = viewModelScope.launch {
-        combine(sensorsManager.yaw, currentLocation, mode) { yaw, loc, m -> Triple(yaw, loc, m) }
-            .filter { it.second != null }
+        combine(sensorsManager.yaw, currentLocation, mode, buoyMode) { yaw, loc, m, bm -> Quad(yaw, loc, m, bm) }
+            .filter { it.b != null }
             .sample(5_000L)
-            .collect { (yaw, loc, m) ->
+            .collect { (yaw, loc, m, bm) ->
                 audioManager.stopNorthSignal()
                 audioManager.stopBeachSignal()
-
+                audioManager.stopBuoySignal()
+                //audioManager.stopRollAlert()
                 when (m) {
+                    DirectionMode.Buoy ->{
+                        audioManager.stopBeachSignal()
+                        audioManager.stopNorthSignal()
+                        //listenToRoll()
+                        when (bm) {
+                            BuoyMode.Off -> {
+                                audioManager.stopBuoySignal()
+                            }
+                            BuoyMode.Buoy1 -> {
+                                obstacles.value.forEachIndexed { _ , o ->
+                                    if (o.type == "Boya 1") {
+                                        val d = calculateDistance(
+                                            loc!!.latitude, loc.longitude,
+                                            o.latitude, o.longitude
+                                        )
+                                        val az = calculateAzimuth(
+                                            LatLng(loc.latitude, loc.longitude),
+                                            yaw.toFloat(),
+                                            LatLng(o.latitude, o.longitude)
+                                        )
+                                        audioManager.scheduleBuoySignal(az, d, 1)
+                                    }
+                                }
+                            }
+                            BuoyMode.Buoy2 -> {
+                                obstacles.value.forEachIndexed { _ , o ->
+                                    if (o.type == "Boya 2") {
+                                        val d = calculateDistance(
+                                            loc!!.latitude, loc.longitude,
+                                            o.latitude, o.longitude
+                                        )
+                                        val az = calculateAzimuth(
+                                            LatLng(loc.latitude, loc.longitude),
+                                            yaw.toFloat(),
+                                            LatLng(o.latitude, o.longitude)
+                                        )
+                                        audioManager.scheduleBuoySignal(az, d, 2)
+                                    }
+                                }
+                            }
+                            BuoyMode.Buoy3 -> {
+                                obstacles.value.forEachIndexed { _ , o ->
+                                    if (o.type == "Boya 3") {
+                                        val d = calculateDistance(
+                                            loc!!.latitude, loc.longitude,
+                                            o.latitude, o.longitude
+                                        )
+                                        val az = calculateAzimuth(
+                                            LatLng(loc.latitude, loc.longitude),
+                                            yaw.toFloat(),
+                                            LatLng(o.latitude, o.longitude)
+                                        )
+                                        audioManager.scheduleBuoySignal(az, d, 3)
+                                    }
+                                }
+                            }
+                        }
+
+                    }
                     DirectionMode.Beach -> {
                         audioManager.stopNorthSignal()
+                        audioManager.stopBuoySignal()
                         val beach = obstacles.value.find { it.type == "Playa" } ?: return@collect
                         val d  = calculateDistance(
                             loc!!.latitude, loc.longitude,
@@ -274,11 +338,14 @@ class LocationViewModel @Inject constructor(
                     }
                     DirectionMode.North -> {
                         audioManager.stopBeachSignal()
+                        audioManager.stopBuoySignal()
                         audioManager.scheduleNorthSignal(yaw.toFloat(), 180f)
                     }
                     DirectionMode.Off   -> {
                         audioManager.stopNorthSignal()
                         audioManager.stopBeachSignal()
+                        audioManager.stopBuoySignal()
+                        //audioManager.stopRollAlert()
                     }
                 }
             }
@@ -355,10 +422,20 @@ class LocationViewModel @Inject constructor(
 
     fun cycleMode() {
         _mode.value = when (_mode.value) {
-            DirectionMode.Off   -> DirectionMode.Beach
+            DirectionMode.Off -> DirectionMode.Buoy
+            DirectionMode.Buoy   -> DirectionMode.Beach
             DirectionMode.Beach -> DirectionMode.North
             DirectionMode.North -> DirectionMode.Off
         }
+    }
+    fun buoyMode() {
+        _buoyMode.value = when (_buoyMode.value) {
+            BuoyMode.Off -> BuoyMode.Buoy1
+            BuoyMode.Buoy1 -> BuoyMode.Buoy2
+            BuoyMode.Buoy2 -> BuoyMode.Buoy3
+            BuoyMode.Buoy3 -> BuoyMode.Off
+        }
+
     }
 
     fun clearErrorMessage() { _errorMessage.value = null }

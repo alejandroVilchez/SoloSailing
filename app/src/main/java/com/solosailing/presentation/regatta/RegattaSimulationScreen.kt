@@ -76,7 +76,7 @@ fun RegattaSimulationScreen(
                 if (ev?.action == KeyEvent.ACTION_DOWN) {
                     when (ev.keyCode) {
                         KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
-                            running = !running
+                            
                             vm.toggleNorthSignal()
                             return true
                         }

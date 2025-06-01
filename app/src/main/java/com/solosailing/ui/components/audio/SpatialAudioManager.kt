@@ -35,6 +35,13 @@ class SpatialAudioManager @Inject constructor(
     private val buoyRes  =
         ctx.resources.getIdentifier("buoy_pcm","raw",ctx.packageName)
 
+    private val buoyNumRes = (1..4).associateWith {
+        ctx.resources.getIdentifier("boya_${it}_pcm", "raw", ctx.packageName)
+    }
+    private val dirHour = (1..12).associateWith {
+        ctx.resources.getIdentifier("direccion_${it}_pcm", "raw", ctx.packageName)
+    }
+
     companion object {
         private const val MIN_SIGNAL_INTERVAL = 5_000L
         private const val DISTANCE_DELAY      = 2_000L
@@ -43,9 +50,12 @@ class SpatialAudioManager @Inject constructor(
     private var rollJob: Job?  = null
     private var northJob: Job? = null
     private var beachJob: Job? = null
+    private var buoyJob: Job? = null
+    private var directionJob: Job? = null
     private var lastRollCount = 0
     private var lastHour = -1
     private var lastBeachParams: Pair<Int,Float>? = null
+    private var lastBuoyParams: Pair<Int,Float>? = null
 
     private fun azimuthToHour(az: Float): Int {
         // lo llevamos a 0..360
@@ -63,6 +73,8 @@ class SpatialAudioManager @Inject constructor(
         beachRes.values.filter { it != 0 }.forEach(engine::loadRawPcm) //para que no pete cuando no hay marcador
         distRes .values.filter { it != 0 }.forEach(engine::loadRawPcm)
         boatRes.values.forEach(engine::loadRawPcm)
+        buoyNumRes.values.forEach(engine::loadRawPcm)
+        dirHour.values.forEach(engine::loadRawPcm)
     }
 
     /** Roll alert */
@@ -135,6 +147,28 @@ class SpatialAudioManager @Inject constructor(
         }
     }
     fun stopBeachSignal() = beachJob?.cancel()
+
+    fun scheduleBuoySignal(az: Float, dist: Float, num: Int) {
+        val hour = azimuthToHour(az)
+        val bucket = distRes.keys.firstOrNull { dist <= it }?: distRes.keys.maxOrNull()!!
+        val params = hour to bucket
+        if (buoyJob?.isActive==true && lastBuoyParams==params) return
+        lastBuoyParams=params; buoyJob?.cancel()
+        val resNum = buoyNumRes[num] ?: return
+        val resH = dirHour[hour] ?: return
+        val resD = distRes[bucket] ?: return
+        buoyJob = scope.launch {
+            while (isActive) {
+                engine.playSpatial(resNum, az, dist)
+                delay (2_000L)
+                engine.playSpatial(resH, az, dist)
+                delay(2_000L)
+                engine.playSpatial(resD, az, dist)
+                delay(MIN_SIGNAL_INTERVAL - DISTANCE_DELAY)
+            }
+        }
+    }
+    fun stopBuoySignal() = buoyJob?.cancel()
 
     fun playBoat(index: Int, azimuth: Float, distance: Float) {
         boatRes[index]?.let { engine.playSpatial(it, azimuth, distance) }

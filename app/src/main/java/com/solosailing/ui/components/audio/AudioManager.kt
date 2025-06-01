@@ -53,7 +53,7 @@ class AudioManager @Inject constructor(
             .build()
 
         // Carga tilt (roll)
-        snapSoundId = pool.load(context, R.raw.tilt, 1)
+        snapSoundId = pool.load(context, R.raw.tilt_pcm, 1)
 
         // Carga horas norte / playa
         for(i in 1..12) {

@@ -20,8 +20,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    private const val BASE_URL = "https://backend-production-f962.up.railway.app/"
-
+    private const val BASE_URL = "https://solosailingbackend-production.up.railway.app/" // "https://backend-production-f962.up.railway.app/"
     @Provides
     @Singleton
     fun provideLoggingInterceptor(): HttpLoggingInterceptor {

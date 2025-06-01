@@ -19,7 +19,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object TrackingModule {
 
-    private const val WS_URL = "wss://backend-production-f962.up.railway.app/ws/tracking"
+    private const val WS_URL = "wss://solosailingbackend-production.up.railway.app/ws/tracking"//"wss://backend-production-f962.up.railway.app/ws/tracking"
 
     @Provides
     @Singleton
