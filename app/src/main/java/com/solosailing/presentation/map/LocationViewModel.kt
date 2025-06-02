@@ -419,6 +419,10 @@ class LocationViewModel @Inject constructor(
         _mode.value = if (_mode.value == DirectionMode.North) DirectionMode.Off
         else DirectionMode.North
     }
+    fun toggleBuoySignal() {
+        _mode.value = if (_mode.value == DirectionMode.Buoy) DirectionMode.Off
+        else DirectionMode.Buoy
+    }
 
     fun cycleMode() {
         _mode.value = when (_mode.value) {

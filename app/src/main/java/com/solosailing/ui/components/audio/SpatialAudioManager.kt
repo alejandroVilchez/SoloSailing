@@ -160,9 +160,9 @@ class SpatialAudioManager @Inject constructor(
         buoyJob = scope.launch {
             while (isActive) {
                 engine.playSpatial(resNum, az, dist)
-                delay (2_000L)
+                delay (1_500L)
                 engine.playSpatial(resH, az, dist)
-                delay(2_000L)
+                delay(1_500L)
                 engine.playSpatial(resD, az, dist)
                 delay(MIN_SIGNAL_INTERVAL - DISTANCE_DELAY)
             }

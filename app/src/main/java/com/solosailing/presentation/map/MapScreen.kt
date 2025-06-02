@@ -247,7 +247,7 @@ fun MapScreen(navController: NavController) {
                 obstacles.forEach { obstacle ->
                     val pos = LatLng(obstacle.latitude, obstacle.longitude)
                     val hue = when (obstacle.type) {
-                        "Boya" -> BitmapDescriptorFactory.HUE_BLUE
+                        "Boya 1", "Boya 2", "Boya 3" -> BitmapDescriptorFactory.HUE_BLUE
                         //"Bote" -> BitmapDescriptorFactory.fromResource(R.drawable.direction_icon8)
                         "Playa" -> BitmapDescriptorFactory.HUE_YELLOW
                         else -> BitmapDescriptorFactory.HUE_RED
@@ -288,14 +288,25 @@ fun MapScreen(navController: NavController) {
 
             // Cargando
             if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center).padding(16.dp))
             }
             // Interfaz de Usuario
-
+            Column(modifier= Modifier.align(Alignment.TopCenter)){
+                FloatingActionButton(
+                    onClick = { locationViewModel.buoyMode()},
+                    containerColor = if (mode == DirectionMode.Buoy)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Text("Siguiente boya")
+                }
+            }
             Column(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
                 FloatingActionButton(
                     onClick = { locationViewModel.toggleBeachSignal() },
                     containerColor = if (mode == DirectionMode.Beach)
+                        //green
                         MaterialTheme.colorScheme.primaryContainer
                     else
                         MaterialTheme.colorScheme.secondaryContainer
@@ -312,6 +323,17 @@ fun MapScreen(navController: NavController) {
                 ) {
                     Text("Norte")
                 }
+                Spacer(Modifier.height(8.dp))
+                FloatingActionButton(
+                    onClick = { locationViewModel.toggleBuoySignal() },
+                    containerColor = if (mode == DirectionMode.Buoy)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Text("Boyas")
+                }
+
             }
             Column(
                 modifier = Modifier.align(Alignment.TopStart).padding(16.dp),
