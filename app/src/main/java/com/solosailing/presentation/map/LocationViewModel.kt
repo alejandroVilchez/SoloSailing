@@ -99,6 +99,7 @@ class LocationViewModel @Inject constructor(
         audioManager.initialize()
         listenToObstacles()
         listenToRoll()
+        listenToModes()
         listenToDirection()
     }
 
@@ -250,6 +251,22 @@ class LocationViewModel @Inject constructor(
 
     private fun listenToRoll() = viewModelScope.launch {
         sensorsManager.roll.collect { audioManager.scheduleRollAlert(it) }
+    }
+
+    private fun listenToModes() = viewModelScope.launch{
+        mode
+            .collect { newMode ->
+                when (newMode) {
+                    DirectionMode.Buoy -> {
+                        audioManager.playBuoyIntro()
+                    }
+                    DirectionMode.Off -> {
+                        audioManager.playSilenceMode()
+                    }
+                    // Si quisieras otro intro para otros modos, indícalo aquí.
+                    else -> { /* no hay intro extra para Beach/North */ }
+                }
+            }
     }
 
     private fun listenToDirection() = viewModelScope.launch {
@@ -426,7 +443,10 @@ class LocationViewModel @Inject constructor(
 
     fun cycleMode() {
         _mode.value = when (_mode.value) {
-            DirectionMode.Off -> DirectionMode.Buoy
+            DirectionMode.Off -> {
+                _buoyMode.value = BuoyMode.Off
+                DirectionMode.Buoy
+            }
             DirectionMode.Buoy   -> DirectionMode.Beach
             DirectionMode.Beach -> DirectionMode.North
             DirectionMode.North -> DirectionMode.Off

@@ -41,6 +41,8 @@ class SpatialAudioManager @Inject constructor(
     private val dirHour = (1..12).associateWith {
         ctx.resources.getIdentifier("direccion_${it}_pcm", "raw", ctx.packageName)
     }
+    private val buoyIntroMode = R.raw.buoy_mode_pcm
+    private val silenceMode = R.raw.silence_mode_pcm
 
     companion object {
         private const val MIN_SIGNAL_INTERVAL = 5_000L
@@ -51,7 +53,6 @@ class SpatialAudioManager @Inject constructor(
     private var northJob: Job? = null
     private var beachJob: Job? = null
     private var buoyJob: Job? = null
-    private var directionJob: Job? = null
     private var lastRollCount = 0
     private var lastHour = -1
     private var lastBeachParams: Pair<Int,Float>? = null
@@ -66,7 +67,7 @@ class SpatialAudioManager @Inject constructor(
     }
 
     fun initialize() {
-        listOf(tiltRes, buoyRes).forEach(engine::loadRawPcm)
+        listOf(tiltRes, buoyRes, buoyIntroMode, silenceMode).forEach(engine::loadRawPcm)
         northRes.values.forEach(engine::loadRawPcm)
 //        beachRes.values.forEach(engine::loadRawPcm)
 //        distRes.values.forEach(engine::loadRawPcm)
@@ -139,9 +140,9 @@ class SpatialAudioManager @Inject constructor(
         val resD = distRes[bucket] ?: return
         beachJob = scope.launch {
             while (isActive) {
-                engine.playSpatial(resH, az, dist)
+                engine.playSpatial(resH, 0f, 0f)
                 delay(DISTANCE_DELAY)
-                engine.playSpatial(resD, az, dist)
+                engine.playSpatial(resD, 0f, 0f)
                 delay(MIN_SIGNAL_INTERVAL - DISTANCE_DELAY)
             }
         }
@@ -159,16 +160,27 @@ class SpatialAudioManager @Inject constructor(
         val resD = distRes[bucket] ?: return
         buoyJob = scope.launch {
             while (isActive) {
-                engine.playSpatial(resNum, az, dist)
+                engine.playSpatial(resNum, 0f, 0f)
                 delay (1_500L)
-                engine.playSpatial(resH, az, dist)
+                engine.playSpatial(resH, 0f, 0f)
                 delay(1_500L)
-                engine.playSpatial(resD, az, dist)
+                engine.playSpatial(resD, 0f, 0f)
                 delay(MIN_SIGNAL_INTERVAL - DISTANCE_DELAY)
             }
         }
     }
     fun stopBuoySignal() = buoyJob?.cancel()
+
+    fun playBuoyIntro() {
+        scope.launch {
+            engine.playSpatial(buoyIntroMode, 0f, 0f)
+        }
+    }
+    fun playSilenceMode() {
+        scope.launch {
+            engine.playSpatial(silenceMode, 0f, 0f)
+        }
+    }
 
     fun playBoat(index: Int, azimuth: Float, distance: Float) {
         boatRes[index]?.let { engine.playSpatial(it, azimuth, distance) }

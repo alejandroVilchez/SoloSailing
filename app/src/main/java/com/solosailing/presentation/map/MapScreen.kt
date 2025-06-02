@@ -95,7 +95,8 @@ fun MapScreen(navController: NavController) {
                             return true
                         }
                         KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
-                            locationViewModel.cycleMode()
+                            //locationViewModel.cycleMode()
+                            locationViewModel.buoyMode()
                             return true
                         }
                     }
